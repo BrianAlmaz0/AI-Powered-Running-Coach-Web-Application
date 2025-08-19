@@ -9,6 +9,9 @@ import { useToast } from '@/hooks/use-toast';
 interface Profile {
   display_name: string | null;
   strava_user_id: string | null;
+  strava_access_token?: string | null;
+  strava_refresh_token?: string | null;
+  strava_token_expires_at?: number | null;
   fitness_level: string;
   weekly_mileage_goal: number;
 }
@@ -24,13 +27,53 @@ const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
+  
     totalRuns: 0,
     totalDistance: 0,
     averagePace: 0,
     weeklyGoalProgress: 0
   });
   const [loading, setLoading] = useState(true);
+
+  const syncActivities = async () => {
+  if (!profile?.strava_access_token) {
+    toast({
+      title: "No Strava access token found.",
+      description: "Please reconnect your Strava account.",
+      variant: "destructive"
+    });
+    return;
+  }
+  setSyncing(true);
+  try {
+    const res = await fetch(
+      "https://www.strava.com/api/v3/athlete/activities?per_page=10",
+      {
+        headers: {
+          Authorization: `Bearer ${profile.strava_access_token}`,
+        },
+      }
+    );
+    const data = await res.json();
+    setActivities(data);
+    toast({
+      title: "Activities Synced!",
+      description: `Fetched ${data.length} activities from Strava.`,
+      variant: "default"
+    });
+  } catch (error) {
+    toast({
+      title: "Failed to sync activities",
+      description: String(error),
+      variant: "destructive"
+    });
+  } finally {
+    setSyncing(false);
+  }
+};
 
   useEffect(() => {
     if (user) {
@@ -234,8 +277,12 @@ const Dashboard = () => {
                   <p className="text-sm text-success">
                     ✓ Connected to Strava
                   </p>
-                  <Button variant="outline" className="w-full">
-                    Sync Latest Activities
+                  <Button variant="outline" 
+                    className="w-full"
+                    onClick ={syncActivities}
+                    disabled={syncing}
+                  >
+                    {syncing ? "Syncing..." : "Sync Latest Activities"}
                   </Button>
                 </div>
               )}
@@ -282,7 +329,7 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {stats.totalRuns === 0 ? (
+              {activities.length === 0 ? (
                 <div className="text-center py-8">
                   <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">No activities yet</p>
@@ -291,11 +338,25 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Activity tracking will appear here once connected to Strava.
-                  </p>
-                </div>
+                <ul className="divide-y divide-muted-foreground/10">
+                  {activities.map((activity) => (
+                    <li key={activity.id} className="py-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">{activity.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(activity.start_date).toLocaleDateString()} • {((activity.distance || 0) / 1000).toFixed(2)} km
+                          </div>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {activity.moving_time
+                            ? `${Math.floor(activity.moving_time / 60)}:${String(activity.moving_time % 60).padStart(2, "0")}`
+                            : "--:--"}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>
