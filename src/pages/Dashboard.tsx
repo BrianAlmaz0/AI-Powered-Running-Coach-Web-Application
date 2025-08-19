@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Activity, Calendar, Target, TrendingUp, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 
 interface Profile {
   display_name: string | null;
@@ -36,6 +37,65 @@ const Dashboard = () => {
     averagePace: 0,
     weeklyGoalProgress: 0
   });
+  const [raceType, setRaceType] = useState("");
+  const [goalTime, setGoalTime] = useState("");
+  const [raceDate, setRaceDate] = useState("");
+  const [runsPerWeek, setRunsPerWeek] = useState(3);
+  const [plan, setPlan] = useState<string | null>(null);
+
+  const handleGoalSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    // Send user inputs and recent activities to your AI API route
+    const res = await fetch("/api/ai-generate-plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        raceType,
+        goalTime,
+        raceDate,
+        runsPerWeek,
+        activities, // send all recent activities
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to generate plan.");
+    }
+
+    const { weeklyGoal, plan, message } = await res.json();
+    setPlan(plan);
+
+    // Save the weekly goal to Supabase
+    await supabase
+      .from("profiles")
+      .update({ weekly_mileage_goal: weeklyGoal })
+      .eq("user_id", user.id);
+
+    setProfile((p) => p && { ...p, weekly_mileage_goal: weeklyGoal });
+
+    toast({
+      title: "Training Plan Generated!",
+      description: message || `Your weekly goal is ${weeklyGoal} mi.`,
+      variant: "default",
+    });
+
+    // Optionally, display the plan to the user here
+    // setPlan(plan);
+
+  } catch (error: any) {
+    toast({
+      title: "Error generating plan",
+      description: error.message,
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
   const [loading, setLoading] = useState(true);
 
   const syncActivities = async () => {
@@ -132,12 +192,12 @@ const Dashboard = () => {
 
       if (activities) {
         const totalRuns = activities.length;
-        const totalDistance = activities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1000; // Convert to km
+        const totalDistance = activities.reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1609.34; // Convert to miles
         const averagePace = activities.length > 0 
           ? activities.reduce((sum, activity) => {
-              const pace = activity.moving_time / (activity.distance / 1000); // seconds per km
+              const pace = activity.moving_time / (activity.distance / 1609.34); // seconds per mile
               return sum + pace;
-            }, 0) / activities.length / 60 // Convert to minutes per km
+            }, 0) / activities.length / 60 // Convert to minutes per mile
           : 0;
 
         setStats({
@@ -162,6 +222,43 @@ const Dashboard = () => {
       });
     }
   };
+
+  const now = new Date();
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday as first day
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
+  const runsThisWeek = activities.filter((activity) => {
+  const activityDate = typeof activity.start_date === "string"
+    ? parseISO(activity.start_date)
+    : new Date(activity.start_date);
+  return isWithinInterval(activityDate, { start: weekStart, end: weekEnd });
+  }).length;
+
+  const distanceThisWeek = activities
+  .filter((activity) => {
+    const activityDate = typeof activity.start_date === "string"
+      ? parseISO(activity.start_date)
+      : new Date(activity.start_date);
+    return isWithinInterval(activityDate, { start: weekStart, end: weekEnd });
+  })
+  .reduce((sum, activity) => sum + (activity.distance || 0), 0) / 1609.34; // miles
+
+  // Get activities for this week using your existing logic
+  const activitiesThisWeek = activities.filter((activity) => {
+  const activityDate = typeof activity.start_date === "string"
+    ? parseISO(activity.start_date)
+    : new Date(activity.start_date);
+  return isWithinInterval(activityDate, { start: weekStart, end: weekEnd });
+});
+
+  // Calculate average pace for this week in min/mi
+  const averagePaceThisWeek =
+  activitiesThisWeek.length > 0
+    ? activitiesThisWeek.reduce((sum, activity) => {
+        const miles = (activity.distance || 0) / 1609.34;
+        return sum + (miles > 0 ? activity.moving_time / 60 / miles : 0);
+      }, 0) / activitiesThisWeek.length
+    : 0;
 
   const STRAVA_CLIENT_ID = import.meta.env.VITE_STRAVA_CLIENT_ID;
   const REDIRECT_URI = "http://localhost:3000/strava-callback";
@@ -207,36 +304,38 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Runs</CardTitle>
+              <CardTitle className="text-sm font-medium">Runs This Week</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalRuns}</div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <div className="text-2xl font-bold">{runsThisWeek}</div>
+              <p className="text-xs text-muted-foreground">This week</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Distance</CardTitle>
+              <CardTitle className="text-sm font-medium">Distance This Week</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalDistance.toFixed(1)} km</div>
-              <p className="text-xs text-muted-foreground">All time</p>
+              <div className="text-2xl font-bold">{distanceThisWeek.toFixed(1)} mi</div>
+              <p className="text-xs text-muted-foreground">This week</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Pace</CardTitle>
+              <CardTitle className="text-sm font-medium">Avg Pace This Week</CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.averagePace > 0 ? `${Math.floor(stats.averagePace)}:${String(Math.floor((stats.averagePace % 1) * 60)).padStart(2, '0')}` : '--:--'}
+                {averagePaceThisWeek > 0
+                  ? `${Math.floor(averagePaceThisWeek)}:${String(Math.round((averagePaceThisWeek % 1) * 60)).padStart(2, '0')}`
+                  : '--:--'}
               </div>
-              <p className="text-xs text-muted-foreground">min/km</p>
+              <p className="text-xs text-muted-foreground">min/mi</p>
             </CardContent>
           </Card>
 
@@ -246,11 +345,62 @@ const Dashboard = () => {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{profile?.weekly_mileage_goal || 0} km</div>
+              <div className="text-2xl font-bold">
+                {profile?.weekly_mileage_goal
+                  ? `${profile.weekly_mileage_goal} mi`
+                  : <span className="text-muted-foreground">Set your goal below</span>
+                  }
+              </div>
               <p className="text-xs text-muted-foreground">Target distance</p>
             </CardContent>
           </Card>
         </div>
+
+        <div className="mt-6">
+          {/* Goal Setting Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Set Your Training Goal With AI</CardTitle>
+                <CardDescription>
+                  Tell us about your race and goals to get a personalized weekly mileage target.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleGoalSubmit} className="space-y-4">
+                  <div>
+                    <label>Race Distance</label>
+                    <select value={raceType} onChange={e => setRaceType(e.target.value)}>
+                      <option value="">Select</option>
+                      <option value="5k">5K</option>
+                      <option value="10k">10K</option>
+                      <option value="half">Half Marathon</option>
+                      <option value="full">Marathon</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Goal Time (hh:mm:ss)</label>
+                    <input type="text" value={goalTime} onChange={e => setGoalTime(e.target.value)} />
+                  </div>
+                  <div>
+                    <label>Race Date</label>
+                    <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label>Runs per week</label>
+                    <input type="number" min={1} max={14} value={runsPerWeek} onChange={e => setRunsPerWeek(Number(e.target.value))} />
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleGoalSubmit}
+                    disabled={loading}
+                  >
+                    {loading ? "Generating..." : "Generate Training Plan"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Strava Integration */}
@@ -289,7 +439,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* AI Coaching */}
           <Card>
             <CardHeader>
               <CardTitle>AI Coaching Insights</CardTitle>
@@ -303,6 +452,15 @@ const Dashboard = () => {
                   <p className="text-sm text-muted-foreground">
                     Connect your Strava account and complete some runs to receive AI-powered coaching insights!
                   </p>
+                ) : plan ? (
+                  <div className="space-y-2">
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-sm font-medium">Your AI Training Plan</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-line">
+                        {plan}
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="p-3 bg-muted rounded-lg">
@@ -311,15 +469,20 @@ const Dashboard = () => {
                         Based on your recent activity, focus on building your aerobic base with easy runs.
                       </p>
                     </div>
-                    <Button variant="outline" className="w-full">
-                      Generate Training Plan
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleGoalSubmit}
+                      disabled={loading}
+                    >
+                      {loading ? "Generating..." : "Generate Training Plan"}
                     </Button>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
-
+          
           {/* Recent Activities */}
           <Card className="lg:col-span-2">
             <CardHeader>
@@ -345,7 +508,7 @@ const Dashboard = () => {
                         <div>
                           <div className="font-medium">{activity.name}</div>
                           <div className="text-xs text-muted-foreground">
-                            {new Date(activity.start_date).toLocaleDateString()} • {((activity.distance || 0) / 1000).toFixed(2)} km
+                            {new Date(activity.start_date).toLocaleDateString()} • {((activity.distance || 0) / 1609.34).toFixed(2)} mi
                           </div>
                         </div>
                         <div className="text-sm text-muted-foreground">
