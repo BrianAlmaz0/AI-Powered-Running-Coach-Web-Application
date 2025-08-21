@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Activity, Calendar, Target, TrendingUp, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
+import { getValidStravaAccessToken } from "../../api/strava-token";
 
 interface Profile {
   display_name: string | null;
@@ -42,6 +43,7 @@ const Dashboard = () => {
   const [raceDate, setRaceDate] = useState("");
   const [runsPerWeek, setRunsPerWeek] = useState(3);
   const [plan, setPlan] = useState<string | null>(null);
+  const [stravaConnected, setStravaConnected] = useState(false);
 
   const handleGoalSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -99,35 +101,46 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   const syncActivities = async () => {
-  if (!profile?.strava_access_token) {
-    toast({
-      title: "No Strava access token found.",
-      description: "Please reconnect your Strava account.",
-      variant: "destructive"
-    });
-    return;
-  }
   setSyncing(true);
+
   try {
-    const res = await fetch(
+    const accessToken = await getValidStravaAccessToken(profile, user.id);
+    if (!accessToken) {
+      toast({
+        title: "Strava connection expired",
+        description: "Please reconnect your Strava account.",
+        variant: "destructive"
+      });
+      setSyncing(false);
+      return;
+    }
+
+    // Proceed to fetch activities with accessToken
+    const activitiesRes = await fetch(
       "https://www.strava.com/api/v3/athlete/activities?per_page=10",
       {
         headers: {
-          Authorization: `Bearer ${profile.strava_access_token}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       }
     );
-    const data = await res.json();
-    setActivities(data);
+    const activitiesData = await activitiesRes.json();
+
+    if (!Array.isArray(activitiesData)) {
+      throw new Error("Failed to fetch activities from Strava.");
+    }
+
+    setActivities(activitiesData);
+
     toast({
       title: "Activities Synced!",
-      description: `Fetched ${data.length} activities from Strava.`,
+      description: `Fetched ${activitiesData.length} activities from Strava.`,
       variant: "default"
     });
-  } catch (error) {
+  } catch (error: any) {
     toast({
       title: "Failed to sync activities",
-      description: String(error),
+      description: error.message || String(error),
       variant: "destructive"
     });
   } finally {
@@ -136,11 +149,17 @@ const Dashboard = () => {
 };
 
   useEffect(() => {
-    if (user) {
-      fetchProfile();
-      fetchStats();
-    }
-  }, [user]);
+  if (
+    profile?.strava_user_id &&
+    profile?.strava_access_token &&
+    profile?.strava_refresh_token &&
+    profile?.strava_token_expires_at
+  ) {
+    setStravaConnected(true);
+  } else {
+    setStravaConnected(false);
+  }
+}, [profile]);
 
   const fetchProfile = async () => {
     try {
@@ -412,33 +431,33 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!profile?.strava_user_id ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Connect your Strava account to automatically sync your runs and get AI-powered insights.
-                  </p>
-                  <Button onClick={connectStrava} className="w-full">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Connect Strava Account
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-success">
-                    ✓ Connected to Strava
-                  </p>
-                  <Button variant="outline" 
-                    className="w-full"
-                    onClick ={syncActivities}
-                    disabled={syncing}
-                  >
-                    {syncing ? "Syncing..." : "Sync Latest Activities"}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
+            {!stravaConnected ? (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Connect your Strava account to automatically sync your runs and get AI-powered insights.
+                </p>
+                <Button onClick={connectStrava} className="w-full">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Connect Strava Account
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-success">
+                  ✓ Connected to Strava
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={syncActivities}
+                  disabled={syncing}
+                >
+                  {syncing ? "Syncing..." : "Sync Latest Activities"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>AI Coaching Insights</CardTitle>
@@ -482,7 +501,7 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           {/* Recent Activities */}
           <Card className="lg:col-span-2">
             <CardHeader>

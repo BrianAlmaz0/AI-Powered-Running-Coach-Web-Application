@@ -1,39 +1,59 @@
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+import { supabase } from "../src/integrations/supabase/client";
+/**
+ * Refreshes the Strava access token if expired.
+ * If refresh fails, clears Strava fields in Supabase and returns null.
+ * @param {object} profile - The user's profile object from Supabase.
+ * @param {string} userId - The user's Supabase user ID.
+ * @returns {Promise<string|null>} - The valid access token, or null if refresh failed.
+ */
+export async function getValidStravaAccessToken(profile, userId) {
+  let accessToken = profile.strava_access_token;
+  let refreshToken = profile.strava_refresh_token;
+  let expiresAt = profile.strava_token_expires_at;
+  const now = Math.floor(Date.now() / 1000);
+
+  if (expiresAt < now) {
+    // Token expired, try to refresh
+    const res = await fetch("https://www.strava.com/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: import.meta.env.VITE_STRAVA_CLIENT_ID,
+        client_secret: import.meta.env.VITE_STRAVA_CLIENT_SECRET,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.errors || !data.access_token) {
+      // Clear Strava fields in Supabase
+      await supabase
+        .from("profiles")
+        .update({
+          strava_user_id: null,
+          strava_access_token: null,
+          strava_refresh_token: null,
+          strava_token_expires_at: null,
+        })
+        .eq("user_id", userId);
+
+      // Optionally: return an error or null
+      return null;
+    }
+
+    // Update Supabase with new tokens
+    await supabase
+      .from("profiles")
+      .update({
+        strava_access_token: data.access_token,
+        strava_refresh_token: data.refresh_token,
+        strava_token_expires_at: data.expires_at,
+      })
+      .eq("user_id", userId);
+
+    accessToken = data.access_token;
   }
 
-  // Parse the body if it's a string
-  let code;
-  try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    code = body.code;
-  } catch {
-    return res.status(400).json({ error: "Invalid request body" });
-  }
-
-  if (!code) {
-    return res.status(400).json({ error: "No code provided" });
-  }
-
-  const response = await fetch("https://www.strava.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      code,
-      grant_type: "authorization_code",
-    }),
-  });
-
-  const data = await response.json();
-  console.log(data);
-  console.log("STRAVA_CLIENT_ID:", process.env.STRAVA_CLIENT_ID);
-
-  if (data.errors) {
-    return res.status(400).json({ error: data.errors[0].message });
-  }
-
-  res.status(200).json(data);
+  return accessToken;
 }
