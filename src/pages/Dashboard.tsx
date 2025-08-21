@@ -24,6 +24,10 @@ interface DashboardStats {
   averagePace: number;
   weeklyGoalProgress: number;
 }
+interface DayPlan {
+  date: string;     
+  workout: string; 
+}
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -42,10 +46,12 @@ const Dashboard = () => {
   const [goalTime, setGoalTime] = useState("");
   const [raceDate, setRaceDate] = useState("");
   const [runsPerWeek, setRunsPerWeek] = useState(3);
-  const [plan, setPlan] = useState<string | null>(null);
+  const [plan, setPlan] = useState<DayPlan[] | null>(null);
   const [stravaConnected, setStravaConnected] = useState(false);
 
   const handleGoalSubmit = async (e: React.FormEvent) => {
+  console.log("Submitting goal"); // for debugging
+
   e.preventDefault();
   setLoading(true);
 
@@ -69,6 +75,7 @@ const Dashboard = () => {
 
     const { weeklyGoal, plan, message } = await res.json();
     setPlan(plan);
+    console.log("plan:", plan);
 
     // Save the weekly goal to Supabase
     await supabase
@@ -395,7 +402,7 @@ const Dashboard = () => {
               <CardContent>
                 <form onSubmit={handleGoalSubmit} className="space-y-4">
                   <div>
-                    <label>Race Distance</label>
+                    <label>Race Distance </label>
                     <select value={raceType} onChange={e => setRaceType(e.target.value)}>
                       <option value="">Select</option>
                       <option value="5k">5K</option>
@@ -405,15 +412,15 @@ const Dashboard = () => {
                     </select>
                   </div>
                   <div>
-                    <label>Goal Time (hh:mm:ss)</label>
+                    <label>Goal Time (hh:mm:ss) </label>
                     <input type="text" value={goalTime} onChange={e => setGoalTime(e.target.value)} />
                   </div>
                   <div>
-                    <label>Race Date</label>
+                    <label>Race Date  </label>
                     <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)} />
                   </div>
                   <div>
-                    <label>Runs per week</label>
+                    <label>Runs per week  </label>
                     <input type="number" min={1} max={14} value={runsPerWeek} onChange={e => setRunsPerWeek(Number(e.target.value))} />
                   </div>
                   <Button
@@ -475,19 +482,23 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {stats.totalRuns === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Connect your Strava account and complete some runs to receive AI-powered coaching insights!
-                  </p>
-                ) : plan ? (
+                {plan && plan.length > 0 ? (
                   <div className="space-y-2">
                     <div className="p-3 bg-muted rounded-lg">
                       <p className="text-sm font-medium">Your AI Training Plan</p>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">
-                        {plan}
-                      </p>
+                      <ul className="text-sm text-muted-foreground whitespace-pre-line space-y-1">
+                        {plan.map((day) => (
+                          <li key={day.date}>
+                            <span className="font-semibold">{new Date(day.date).toLocaleDateString()}:</span> {day.workout}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
+                ) : stats.totalRuns === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Connect your Strava account and complete some runs to receive AI-powered coaching insights!
+                  </p>
                 ) : (
                   <div className="space-y-2">
                     <div className="p-3 bg-muted rounded-lg">
