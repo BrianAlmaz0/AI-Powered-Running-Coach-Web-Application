@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Activity, Calendar, Target, TrendingUp, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
-import { getValidStravaAccessToken } from "../../api/strava-token";
+import { getValidStravaAccessToken } from "@/utils/strava-token";
 
 interface Profile {
   display_name: string | null;
@@ -230,6 +230,14 @@ const Dashboard = () => {
       console.error('Error fetching stats:', error);
     }
   };
+
+  useEffect(() => {
+  if (user?.id) {
+    fetchProfile();
+    fetchStats();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [user?.id]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
