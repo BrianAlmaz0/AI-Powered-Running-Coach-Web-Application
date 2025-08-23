@@ -29,6 +29,14 @@ interface DayPlan {
   workout: string; 
 }
 
+function getDayColor(workout: string) {
+  if (/easy/i.test(workout)) return "bg-green-200";
+  if (/interval|speed/i.test(workout)) return "bg-red-200";
+  if (/long/i.test(workout)) return "bg-blue-200";
+  if (/rest/i.test(workout)) return "bg-gray-200";
+  return "bg-yellow-100";
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -48,6 +56,7 @@ const Dashboard = () => {
   const [runsPerWeek, setRunsPerWeek] = useState(3);
   const [plan, setPlan] = useState<DayPlan[] | null>(null);
   const [stravaConnected, setStravaConnected] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<DayPlan | null>(null);
 
   const handleGoalSubmit = async (e: React.FormEvent) => {
   console.log("Submitting goal"); // for debugging
@@ -483,18 +492,47 @@ const Dashboard = () => {
             <CardContent>
               <div className="space-y-4">
                 {plan && plan.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="p-3 bg-muted rounded-lg">
-                      <p className="text-sm font-medium">Your AI Training Plan</p>
-                      <ul className="text-sm text-muted-foreground whitespace-pre-line space-y-1">
-                        {plan.map((day) => (
-                          <li key={day.date}>
-                            <span className="font-semibold">{new Date(day.date).toLocaleDateString()}:</span> {day.workout}
-                          </li>
-                        ))}
-                      </ul>
+                  <div>
+                    <div className="mb-4 text-sm font-medium">Your AI Training Plan</div>
+                    <div className="grid grid-cols-7 gap-2">
+                      {plan.map((day) => (
+                        <div
+                          key={day.date}
+                          className={`rounded p-2 cursor-pointer text-center transition-all duration-200 ${getDayColor(day.workout)} ${selectedDay?.date === day.date ? "scale-110 z-10 shadow-lg" : ""}`}
+                          onClick={() => setSelectedDay(day)}
+                        >
+                          <div className="font-bold">{new Date(day.date).getDate()}</div>
+                          <div className="text-xs truncate">{day.workout.split(",")[0]}</div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                    {selectedDay && (
+                    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg relative animate-zoomIn">
+                        <button
+                          className="absolute top-2 right-2 text-gray-500"
+                          onClick={() => setSelectedDay(null)}
+                        >
+                          Close
+                        </button>
+                        <h2 className="text-xl font-bold mb-2">{selectedDay.workout}</h2>
+                        <p className="mb-2">Date: {new Date(selectedDay.date).toLocaleDateString()}</p>
+                        {/* Add more details here, e.g., pace, notes, hydration tips */}
+                        <div className="mt-4">
+                          <label>
+                            <input type="checkbox" /> Mark as complete
+                          </label>
+                        </div>
+                        <div className="mt-4">
+                          <div className="h-2 bg-gray-200 rounded">
+                            <div className="h-2 bg-blue-500 rounded" style={{ width: "60%" }} />
+                          </div>
+                          <div className="text-xs text-right mt-1">Weekly Progress: 60%</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 ) : stats.totalRuns === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Connect your Strava account and complete some runs to receive AI-powered coaching insights!
