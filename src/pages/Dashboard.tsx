@@ -5,8 +5,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Activity, Calendar, Target, TrendingUp, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
+import { format, parse, getDay, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 import { getValidStravaAccessToken } from "@/utils/strava-token";
+
 
 interface Profile {
   display_name: string | null;
