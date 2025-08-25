@@ -530,23 +530,22 @@ const Dashboard = () => {
                     popup
                     onSelectEvent={event => setSelectedDay(event.resource)}
                     components={{
-                      event: ({ event }) => (
-                        <span
-                          className={
-                            /easy/i.test(event.title)
-                              ? "text-green-700"
-                              : /interval|speed/i.test(event.title)
-                              ? "text-red-700"
-                              : /long/i.test(event.title)
-                              ? "text-blue-700"
-                              : /rest/i.test(event.title)
-                              ? "text-gray-500"
-                              : ""
-                          }
-                        >
-                          {event.title.split(',')[0]}
-                        </span>
-                      ),
+                      event: ({ event }) => {
+                        let bg = "";
+                        if (/easy/i.test(event.title)) bg = "bg-green-500";
+                        else if (/interval|speed/i.test(event.title)) bg = "bg-red-500";
+                        else if (/long/i.test(event.title)) bg = "bg-blue-500";
+                        else if (/rest/i.test(event.title)) bg = "bg-gray-400";
+                        else bg = "bg-yellow-500";
+                        return (
+                          <span
+                            className={`${bg} text-white px-2 py-1 rounded block focus:outline-none`}
+                            style={{ fontWeight: 600 }}
+                          >
+                            {event.title.split(',')[0]}
+                          </span>
+                        );
+                      },
                     }}
                   />
                   {selectedDay && (
