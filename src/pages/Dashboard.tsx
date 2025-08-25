@@ -7,6 +7,8 @@ import { Activity, Calendar, Target, TrendingUp, ExternalLink } from 'lucide-rea
 import { useToast } from '@/hooks/use-toast';
 import { format, parse, getDay, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 import { getValidStravaAccessToken } from "@/utils/strava-token";
+import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
+
 
 
 interface Profile {
