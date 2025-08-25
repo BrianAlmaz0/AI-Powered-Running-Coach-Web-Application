@@ -52,6 +52,16 @@ function getDayColor(workout: string) {
   return "bg-yellow-100";
 }
 
+async function fetchStravaActivityDetail(accessToken, activityId) {
+  const res = await fetch(
+    `https://www.strava.com/api/v3/activities/${activityId}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+  return await res.json();
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -161,11 +171,25 @@ const Dashboard = () => {
       throw new Error("Failed to fetch activities from Strava.");
     }
 
-    setActivities(activitiesData);
+    //Fetch detailed data for each activity (including heart rate)
+    const detailedActivities = await Promise.all(
+      activitiesData.map(async (activity) => {
+        const detail = await fetchStravaActivityDetail(accessToken, activity.id);
+        return {
+          ...activity,
+          average_heartrate: detail.average_heartrate,
+          max_heartrate: detail.max_heartrate,
+          // add more fields as needed
+        };
+      })
+    );
+
+    setActivities(detailedActivities);
+    console.log("Detailed activities:", detailedActivities);
 
     toast({
       title: "Activities Synced!",
-      description: `Fetched ${activitiesData.length} activities from Strava.`,
+      description: `Fetched ${detailedActivities.length} activities from Strava.`,
       variant: "default"
     });
   } catch (error: any) {
@@ -614,24 +638,35 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <ul className="divide-y divide-muted-foreground/10">
-                  {activities.map((activity) => (
-                    <li key={activity.id} className="py-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{activity.name}</div>
+                {activities.map((activity) => (
+                  <li key={activity.id} className="py-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{activity.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(activity.start_date).toLocaleDateString()} • {((activity.distance || 0) / 1609.34).toFixed(2)} mi
+                        </div>
+                        {/* Show heart rate if available */}
+                        {activity.average_heartrate && (
                           <div className="text-xs text-muted-foreground">
-                            {new Date(activity.start_date).toLocaleDateString()} • {((activity.distance || 0) / 1609.34).toFixed(2)} mi
+                            Avg HR: {activity.average_heartrate} bpm
                           </div>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {activity.moving_time
-                            ? `${Math.floor(activity.moving_time / 60)}:${String(activity.moving_time % 60).padStart(2, "0")}`
-                            : "--:--"}
-                        </div>
+                        )}
+                        {activity.max_heartrate && (
+                          <div className="text-xs text-muted-foreground">
+                            Max HR: {activity.max_heartrate} bpm
+                          </div>
+                        )}
                       </div>
-                    </li>
-                  ))}
-                </ul>
+                      <div className="text-sm text-muted-foreground">
+                        {activity.moving_time
+                          ? `${Math.floor(activity.moving_time / 60)}:${String(activity.moving_time % 60).padStart(2, "0")}`
+                          : "--:--"}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
               )}
             </CardContent>
           </Card>
