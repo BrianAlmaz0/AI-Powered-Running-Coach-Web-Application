@@ -1,3 +1,4 @@
+import {enUS}  from 'date-fns/locale/en-US';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,8 +9,19 @@ import { useToast } from '@/hooks/use-toast';
 import { format, parse, getDay, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 import { getValidStravaAccessToken } from "@/utils/strava-token";
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
+import 'react-big-calendar/lib/css/react-big-calendar.css';
 
+const locales = {
+  'en-US': enUS,
+};
 
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+  getDay,
+  locales,
+});
 
 interface Profile {
   display_name: string | null;
@@ -325,6 +337,17 @@ const Dashboard = () => {
     );
   }
 
+  // Compute calendar events from plan for BigCalendar
+  const calendarEvents = plan
+    ? plan.map((day) => ({
+        title: day.workout,
+        start: new Date(day.date),
+        end: new Date(day.date),
+        allDay: true,
+        resource: day,
+      }))
+    : [];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -493,23 +516,40 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {plan && plan.length > 0 ? (
-                  <div>
-                    <div className="mb-4 text-sm font-medium">Your AI Training Plan</div>
-                    <div className="grid grid-cols-7 gap-2">
-                      {plan.map((day) => (
-                        <div
-                          key={day.date}
-                          className={`rounded p-2 cursor-pointer text-center transition-all duration-200 ${getDayColor(day.workout)} ${selectedDay?.date === day.date ? "scale-110 z-10 shadow-lg" : ""}`}
-                          onClick={() => setSelectedDay(day)}
+            <div className="space-y-4">
+              {plan && plan.length > 0 ? (
+                <div>
+                  <div className="mb-4 text-sm font-medium">Your AI Training Plan</div>
+                  <BigCalendar
+                    localizer={localizer}
+                    events={calendarEvents}
+                    startAccessor="start"
+                    endAccessor="end"
+                    style={{ height: 500 }}
+                    views={['month']}
+                    popup
+                    onSelectEvent={event => setSelectedDay(event.resource)}
+                    components={{
+                      event: ({ event }) => (
+                        <span
+                          className={
+                            /easy/i.test(event.title)
+                              ? "text-green-700"
+                              : /interval|speed/i.test(event.title)
+                              ? "text-red-700"
+                              : /long/i.test(event.title)
+                              ? "text-blue-700"
+                              : /rest/i.test(event.title)
+                              ? "text-gray-500"
+                              : ""
+                          }
                         >
-                          <div className="font-bold">{new Date(day.date).getDate()}</div>
-                          <div className="text-xs truncate">{day.workout.split(",")[0]}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {selectedDay && (
+                          {event.title.split(',')[0]}
+                        </span>
+                      ),
+                    }}
+                  />
+                  {selectedDay && (
                     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                       <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-lg relative animate-zoomIn">
                         <button
@@ -520,46 +560,40 @@ const Dashboard = () => {
                         </button>
                         <h2 className="text-xl font-bold mb-2">{selectedDay.workout}</h2>
                         <p className="mb-2">Date: {new Date(selectedDay.date).toLocaleDateString()}</p>
-                        {/* Add more details here, e.g., pace, notes, hydration tips */}
+                        {/* Add more details here */}
                         <div className="mt-4">
                           <label>
                             <input type="checkbox" /> Mark as complete
                           </label>
                         </div>
-                        <div className="mt-4">
-                          <div className="h-2 bg-gray-200 rounded">
-                            <div className="h-2 bg-blue-500 rounded" style={{ width: "60%" }} />
-                          </div>
-                          <div className="text-xs text-right mt-1">Weekly Progress: 60%</div>
-                        </div>
                       </div>
                     </div>
                   )}
                 </div>
-                ) : stats.totalRuns === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Connect your Strava account and complete some runs to receive AI-powered coaching insights!
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="p-3 bg-muted rounded-lg">
-                      <p className="text-sm font-medium">Next Training Focus</p>
-                      <p className="text-sm text-muted-foreground">
-                        Based on your recent activity, focus on building your aerobic base with easy runs.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={handleGoalSubmit}
-                      disabled={loading}
-                    >
-                      {loading ? "Generating..." : "Generate Training Plan"}
-                    </Button>
+              ) : stats.totalRuns === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Connect your Strava account and complete some runs to receive AI-powered coaching insights!
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <p className="text-sm font-medium">Next Training Focus</p>
+                    <p className="text-sm text-muted-foreground">
+                      Based on your recent activity, focus on building your aerobic base with easy runs.
+                    </p>
                   </div>
-                )}
-              </div>
-            </CardContent>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleGoalSubmit}
+                    disabled={loading}
+                  >
+                    {loading ? "Generating..." : "Generate Training Plan"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
           </Card>
 
           {/* Recent Activities */}
