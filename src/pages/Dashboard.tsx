@@ -457,18 +457,26 @@ const Dashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Set Your Training Goal With AI</CardTitle>
-                <CardDescription>
-                  Tell us about your race and goals to get a personalized weekly mileage target.
-                </CardDescription>
+
               </CardHeader>
               <CardContent>
               <form onSubmit={handleGoalSubmit} className="space-y-4">
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Main Goal Inputs */}
-                  <div className="flex-1 space-y-4">
-                    <div>
-                      <label>Race Distance </label>
-                      <select value={raceType} onChange={e => setRaceType(e.target.value)}>
+                  <div className="flex-1 space-y-4 bg-muted/30 rounded-lg p-4">
+                    <div className="mb-2">
+                      <span className="text-sm text-muted-foreground">
+                        Enter your upcoming race details and training preferences.
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block font-semibold text-sm mb-1" htmlFor="raceType">Race Distance</label>
+                      <select
+                        id="raceType"
+                        value={raceType}
+                        onChange={e => setRaceType(e.target.value)}
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
                         <option value="">Select</option>
                         <option value="5k">5K</option>
                         <option value="10k">10K</option>
@@ -476,28 +484,55 @@ const Dashboard = () => {
                         <option value="full">Marathon</option>
                       </select>
                     </div>
-                    <div>
-                      <label>Goal Time (hh:mm:ss) </label>
-                      <input type="text" value={goalTime} onChange={e => setGoalTime(e.target.value)} />
+                    <div className="space-y-1">
+                      <label className="block font-semibold text-sm mb-1" htmlFor="goalTime">Goal Time</label>
+                      <input
+                        id="goalTime"
+                        type="text"
+                        placeholder="Time (hh:mm:ss)"
+                        value={goalTime}
+                        onChange={e => setGoalTime(e.target.value)}
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
                     </div>
-                    <div>
-                      <label>Race Date  </label>
-                      <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)} />
+                    <div className="space-y-1">
+                      <label className="block font-semibold text-sm mb-1" htmlFor="raceDate">Race Date</label>
+                      <input
+                        id="raceDate"
+                        type="date"
+                        value={raceDate}
+                        onChange={e => setRaceDate(e.target.value)}
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
                     </div>
-                    <div>
-                      <label>Runs per week  </label>
-                      <input type="number" min={1} max={14} value={runsPerWeek} onChange={e => setRunsPerWeek(Number(e.target.value))} />
+                    <div className="space-y-1">
+                      <label className="block font-semibold text-sm mb-1" htmlFor="runsPerWeek">Runs per week<span className="text-muted-foreground font-normal"> (# of days you plan to run)</span></label>
+                      <input
+                        id="runsPerWeek"
+                        type="number"
+                        min={1}
+                        max={14}
+                        value={runsPerWeek}
+                        onChange={e => setRunsPerWeek(Number(e.target.value))}
+                        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
                     </div>
                   </div>
                   {/* Personal Best Input */}
-                  <div className="flex-1 space-y-4">
-                    <div>
-                      <label className="block font-medium mb-1">Personal Best</label>
+                  <div className="flex-1 space-y-4 bg-muted/30 rounded-lg p-4">
+                    <div className="mb-2">
+                      <span className="text-sm text-muted-foreground">
+                        Enter a recent personal best for your training paces.
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block font-semibold text-sm mb-1" htmlFor="pbDistance">Personal Best</label>
                       <div className="flex gap-2 items-center">
                         <select
+                          id="pbDistance"
                           value={pbDistance}
                           onChange={e => setPbDistance(e.target.value)}
-                          className="border rounded px-2 py-1"
+                          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                           <option value="">Select Distance</option>
                           <option value="mile">Mile</option>
@@ -511,11 +546,11 @@ const Dashboard = () => {
                           placeholder="Time (hh:mm:ss)"
                           value={pbTime}
                           onChange={e => setPbTime(e.target.value)}
-                          className="ml-2 border rounded px-2 py-1"
+                          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
+                      {/*<span className="text-xs text-muted-foreground">Enter your best time for the selected distance</span>*/}
                     </div>
-                    {/* Leave room for chart here */}
                     <div className="mt-8">
                       {/* Chart will go here after plan is generated */}
                     </div>
