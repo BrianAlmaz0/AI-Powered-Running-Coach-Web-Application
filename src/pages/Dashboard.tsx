@@ -82,7 +82,8 @@ const Dashboard = () => {
   const [plan, setPlan] = useState<DayPlan[] | null>(null);
   const [stravaConnected, setStravaConnected] = useState(false);
   const [selectedDay, setSelectedDay] = useState<DayPlan | null>(null);
-
+  const [pbDistance, setPbDistance] = useState("");
+  const [pbTime, setPbTime] = useState("");
   const handleGoalSubmit = async (e: React.FormEvent) => {
   console.log("Submitting goal"); // for debugging
 
@@ -100,6 +101,8 @@ const Dashboard = () => {
         raceDate,
         runsPerWeek,
         activities, // send all recent activities
+        pbDistance,
+        pbTime,
       }),
     });
 
@@ -459,38 +462,74 @@ const Dashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleGoalSubmit} className="space-y-4">
-                  <div>
-                    <label>Race Distance </label>
-                    <select value={raceType} onChange={e => setRaceType(e.target.value)}>
-                      <option value="">Select</option>
-                      <option value="5k">5K</option>
-                      <option value="10k">10K</option>
-                      <option value="half">Half Marathon</option>
-                      <option value="full">Marathon</option>
-                    </select>
+              <form onSubmit={handleGoalSubmit} className="space-y-4">
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Main Goal Inputs */}
+                  <div className="flex-1 space-y-4">
+                    <div>
+                      <label>Race Distance </label>
+                      <select value={raceType} onChange={e => setRaceType(e.target.value)}>
+                        <option value="">Select</option>
+                        <option value="5k">5K</option>
+                        <option value="10k">10K</option>
+                        <option value="half">Half Marathon</option>
+                        <option value="full">Marathon</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label>Goal Time (hh:mm:ss) </label>
+                      <input type="text" value={goalTime} onChange={e => setGoalTime(e.target.value)} />
+                    </div>
+                    <div>
+                      <label>Race Date  </label>
+                      <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label>Runs per week  </label>
+                      <input type="number" min={1} max={14} value={runsPerWeek} onChange={e => setRunsPerWeek(Number(e.target.value))} />
+                    </div>
                   </div>
-                  <div>
-                    <label>Goal Time (hh:mm:ss) </label>
-                    <input type="text" value={goalTime} onChange={e => setGoalTime(e.target.value)} />
+                  {/* Personal Best Input */}
+                  <div className="flex-1 space-y-4">
+                    <div>
+                      <label className="block font-medium mb-1">Personal Best</label>
+                      <div className="flex gap-2 items-center">
+                        <select
+                          value={pbDistance}
+                          onChange={e => setPbDistance(e.target.value)}
+                          className="border rounded px-2 py-1"
+                        >
+                          <option value="">Select Distance</option>
+                          <option value="mile">Mile</option>
+                          <option value="5k">5K</option>
+                          <option value="10k">10K</option>
+                          <option value="half">Half Marathon</option>
+                          <option value="full">Marathon</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Time (hh:mm:ss)"
+                          value={pbTime}
+                          onChange={e => setPbTime(e.target.value)}
+                          className="ml-2 border rounded px-2 py-1"
+                        />
+                      </div>
+                    </div>
+                    {/* Leave room for chart here */}
+                    <div className="mt-8">
+                      {/* Chart will go here after plan is generated */}
+                    </div>
                   </div>
-                  <div>
-                    <label>Race Date  </label>
-                    <input type="date" value={raceDate} onChange={e => setRaceDate(e.target.value)} />
-                  </div>
-                  <div>
-                    <label>Runs per week  </label>
-                    <input type="number" min={1} max={14} value={runsPerWeek} onChange={e => setRunsPerWeek(Number(e.target.value))} />
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleGoalSubmit}
-                    disabled={loading}
-                  >
-                    {loading ? "Generating..." : "Generate Training Plan"}
-                  </Button>
-                </form>
+                </div>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoalSubmit}
+                  disabled={loading}
+                >
+                  {loading ? "Generating..." : "Generate Training Plan"}
+                </Button>
+              </form>
               </CardContent>
             </Card>
           </div>
