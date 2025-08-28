@@ -10,6 +10,7 @@ import { format, parse, getDay, startOfWeek, endOfWeek, isWithinInterval, parseI
 import { getValidStravaAccessToken } from "@/utils/strava-token";
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { pacesFromPB, PacesFromPBResult } from "@/utils/pacesFromPB";
 
 const locales = {
   'en-US': enUS,
@@ -42,6 +43,24 @@ interface DashboardStats {
 interface DayPlan {
   date: string;     
   workout: string; 
+}
+
+function getZoneColor(zone: string) {
+  switch (zone) {
+    case "easy":
+      return "bg-green-500 text-white";
+    case "interval":
+    case "speed":
+      return "bg-red-500 text-white";
+    case "long":
+      return "bg-blue-500 text-white";
+    case "steady":
+      return "bg-yellow-500 text-white";
+    case "threshold":
+      return "bg-purple-500 text-white";
+    default:
+      return "bg-gray-400 text-white";
+  }
 }
 
 function getDayColor(workout: string) {
@@ -84,6 +103,7 @@ const Dashboard = () => {
   const [selectedDay, setSelectedDay] = useState<DayPlan | null>(null);
   const [pbDistance, setPbDistance] = useState("");
   const [pbTime, setPbTime] = useState("");
+  const [paces, setPaces] = useState<PacesFromPBResult | null>(null);
   const handleGoalSubmit = async (e: React.FormEvent) => {
   console.log("Submitting goal"); // for debugging
 
@@ -121,6 +141,22 @@ const Dashboard = () => {
       .eq("user_id", user.id);
 
     setProfile((p) => p && { ...p, weekly_mileage_goal: weeklyGoal });
+
+    if (pbDistance && pbTime) {
+      try {
+        const pacesResult = pacesFromPB(pbDistance as any, pbTime);
+        setPaces(pacesResult);
+      } catch (err) {
+        setPaces(null);
+        toast({
+          title: "Invalid PB",
+          description: "Could not calculate paces from your personal best.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      setPaces(null);
+    }
 
     toast({
       title: "Training Plan Generated!",
@@ -551,8 +587,23 @@ const Dashboard = () => {
                       </div>
                       {/*<span className="text-xs text-muted-foreground">Enter your best time for the selected distance</span>*/}
                     </div>
-                    <div className="mt-8">
-                      {/* Chart will go here after plan is generated */}
+                    <div className="mt-8 space-y-2">
+                      {paces && (
+                        <div>
+                          <div className="mb-2 text-sm font-semibold text-muted-foreground">Your Training Paces</div>
+                          <div className="flex flex-col gap-2">
+                            {Object.entries(paces.zones).map(([zone, val]) => (
+                              <div key={zone} className={`rounded px-3 py-2 flex items-center gap-4 ${getZoneColor(zone)}`}>
+                                <span className="capitalize font-semibold w-24">{zone}</span>
+                                <span className="text-sm">
+                                  {val.min} – {val.max} <span className="opacity-70 ml-2">{val.min_mi} – {val.max_mi}</span>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-2">{paces.notes}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
