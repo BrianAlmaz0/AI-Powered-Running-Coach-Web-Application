@@ -81,6 +81,11 @@ async function fetchStravaActivityDetail(accessToken, activityId) {
   return await res.json();
 }
 
+function isValidTimeFormat(value: string) {
+  // Accepts hh:mm:ss or mm:ss (e.g., 1:23:45 or 23:45)
+  return /^(\d{1,2}:)?[0-5]?\d:[0-5]\d$/.test(value.trim());
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -106,6 +111,27 @@ const Dashboard = () => {
   const [paces, setPaces] = useState<PacesFromPBResult | null>(null);
   const handleGoalSubmit = async (e: React.FormEvent) => {
   console.log("Submitting goal"); // for debugging
+
+    e.preventDefault();
+    
+    if (!isValidTimeFormat(goalTime)) {
+    toast({
+      title: "Invalid Goal Time",
+      description: "Please enter your goal time as hh:mm:ss or mm:ss.",
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+  if (pbTime && !isValidTimeFormat(pbTime)) {
+    toast({
+      title: "Invalid Personal Best Time",
+      description: "Please enter your personal best as hh:mm:ss or mm:ss.",
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
 
   e.preventDefault();
   setLoading(true);
@@ -530,6 +556,9 @@ const Dashboard = () => {
                         onChange={e => setGoalTime(e.target.value)}
                         className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                       />
+                      {goalTime && !isValidTimeFormat(goalTime) && (
+                        <span className="text-xs text-red-500">Format: hh:mm:ss or mm:ss</span>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <label className="block font-semibold text-sm mb-1" htmlFor="raceDate">Race Date</label>
@@ -584,6 +613,9 @@ const Dashboard = () => {
                           onChange={e => setPbTime(e.target.value)}
                           className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                         />
+                        {pbTime && !isValidTimeFormat(pbTime) && (
+                          <span className="text-xs text-red-500">Format: hh:mm:ss or mm:ss</span>
+                        )}
                       </div>
                       {/*<span className="text-xs text-muted-foreground">Enter your best time for the selected distance</span>*/}
                     </div>
@@ -610,7 +642,7 @@ const Dashboard = () => {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={handleGoalSubmit}
+                  //onClick={handleGoalSubmit}
                   disabled={loading}
                 >
                   {loading ? "Generating..." : "Generate Training Plan"}
