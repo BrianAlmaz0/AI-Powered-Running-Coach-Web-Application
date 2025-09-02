@@ -110,10 +110,26 @@ const Dashboard = () => {
   const [pbTime, setPbTime] = useState("");
   const [paces, setPaces] = useState<PacesFromPBResult | null>(null);
   const handleGoalSubmit = async (e: React.FormEvent) => {
-  console.log("Submitting goal"); // for debugging
+  e.preventDefault();
 
-    e.preventDefault();
-    
+  const missingFields = [];
+  if (!raceType) missingFields.push("Race Distance");
+  if (!goalTime) missingFields.push("Goal Time");
+  if (!raceDate) missingFields.push("Race Date");
+  if (!runsPerWeek) missingFields.push("Runs Per Week");
+  if (!pbDistance) missingFields.push("Personal Best Distance");
+  if (!pbTime) missingFields.push("Personal Best Time");
+  
+  if (missingFields.length > 0) {
+    toast({
+      title: "Missing Required Fields",
+      description: `Please fill in: ${missingFields.join(", ")}`,
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
     if (!isValidTimeFormat(goalTime)) {
     toast({
       title: "Invalid Goal Time",
@@ -157,7 +173,16 @@ const Dashboard = () => {
     }
 
     const { weeklyGoal, plan, message } = await res.json();
-    setPlan(plan);
+    if (Array.isArray(plan) && plan.length > 0) {
+      setPlan(plan);
+    } else {
+      setPlan([]);
+      toast({
+        title: "No plan generated",
+        description: "The AI did not return a valid training plan. Please try again.",
+        variant: "destructive",
+      });
+    }
     console.log("plan:", plan);
 
     // Save the weekly goal to Supabase
@@ -647,9 +672,9 @@ useEffect(() => {
                   </div>
                 </div>
                 <Button
+                  type="submit"
                   variant="outline"
                   className="w-full"
-                  //onClick={handleGoalSubmit}
                   disabled={loading}
                 >
                   {loading ? "Generating..." : "Generate Training Plan"}
@@ -665,7 +690,7 @@ useEffect(() => {
             <CardHeader>
               <CardTitle>Connect with Strava</CardTitle>
               <CardDescription>
-                Import your running data automatically from Strava to get personalized AI coaching.
+                Import your running data from Strava to get a more personalized AI coaching experience.
               </CardDescription>
             </CardHeader>
             <CardContent>
