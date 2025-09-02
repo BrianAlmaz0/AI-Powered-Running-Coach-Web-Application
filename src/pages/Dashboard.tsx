@@ -268,7 +268,7 @@ const Dashboard = () => {
   }
 };
 
-  useEffect(() => {
+useEffect(() => {
   if (
     profile?.strava_user_id &&
     profile?.strava_access_token &&
@@ -276,9 +276,16 @@ const Dashboard = () => {
     profile?.strava_token_expires_at
   ) {
     setStravaConnected(true);
+
+    // Auto-refresh Strava token in the background
+    getValidStravaAccessToken(profile, user.id)
+      .catch(() => {
+        // Optionally handle error (e.g., show a toast or setStravaConnected(false))
+      });
   } else {
     setStravaConnected(false);
   }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [profile]);
 
   const fetchProfile = async () => {
