@@ -50,7 +50,7 @@ export function pacesFromPB(
   threshold: { s_per_km: number; per_km: string; per_mile: string };
   zones: Record<
     | "easy"
-    | "steady"
+    | "tempo"
     | "threshold"
     | "interval"
     | "speed"
@@ -79,7 +79,7 @@ export function pacesFromPB(
     notes = "10K PB used directly as threshold pace.";
   } else {
     thresholdTime_s = riegelProjectTime(time_s, dist_m, thresholdDist_m, 1.06);
-    notes = `PB projected to 10K using Riegel's formula (exponent 1.06).`;
+    notes =  `These paces are a starting point and will evolve as your training progresses. Use them as a general guideline, but always follow the specific paces shown in your calendar workouts for the most accurate and up-to-date targets.`;
   }
 
   // Threshold pace in s/km
@@ -88,7 +88,7 @@ export function pacesFromPB(
   // Zone multipliers
   const ZONES = {
     easy:    [1.15, 1.30],
-    steady:  [1.08, 1.15],
+    tempo:  [1.08, 1.15],
     threshold: [0.98, 1.03],
     interval: [0.90, 0.95],
     speed:   [0.80, 0.88],

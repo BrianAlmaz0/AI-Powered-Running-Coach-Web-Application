@@ -54,7 +54,7 @@ function getZoneColor(zone: string) {
       return "bg-red-500 text-white";
     case "long":
       return "bg-blue-500 text-white";
-    case "steady":
+    case "tempo":
       return "bg-yellow-500 text-white";
     case "threshold":
       return "bg-purple-500 text-white";
@@ -68,7 +68,23 @@ function getDayColor(workout: string) {
   if (/interval|speed/i.test(workout)) return "bg-red-200";
   if (/long/i.test(workout)) return "bg-blue-200";
   if (/rest/i.test(workout)) return "bg-gray-200";
-  return "bg-yellow-100";
+  return "bg-red-200";
+}
+
+function getWorkoutZone(workout: string): keyof PacesFromPBResult["zones"] | null {
+  if (/tempo|steady/i.test(workout)) return "tempo";
+  if (/threshold/i.test(workout)) return "threshold";
+  if (/interval|vo2/i.test(workout)) return "interval";
+  if (/speed|rep/i.test(workout)) return "speed";
+  if (/long/i.test(workout)) return "long";
+  if (/easy/i.test(workout)) return "easy";
+  return null;
+}
+
+function extractAIPace(workout: string): string | null {
+  // Looks for patterns like "at 7:15 min/mile" or "at 4:30/km"
+  const match = workout.match(/at ([0-9]+:[0-9]{2}) ?(min\/mi|min\/mile|\/mi|\/mile|min\/km|\/km)/i);
+  return match ? `${match[1]} ${match[2]}` : null;
 }
 
 async function fetchStravaActivityDetail(accessToken, activityId) {
@@ -660,7 +676,7 @@ useEffect(() => {
                               <div key={zone} className={`rounded px-3 py-2 flex items-center gap-4 ${getZoneColor(zone)}`}>
                                 <span className="capitalize font-semibold w-24">{zone}</span>
                                 <span className="text-sm">
-                                  {val.min} – {val.max} <span className="opacity-70 ml-2">{val.min_mi} – {val.max_mi}</span>
+                                  {val.min_mi} – {val.max_mi} <span className="opacity-70 ml-2">{val.min} – {val.max}</span>
                                 </span>
                               </div>
                             ))}
@@ -773,6 +789,28 @@ useEffect(() => {
                         <h2 className="text-xl font-bold mb-2">{selectedDay.workout}</h2>
                         <p className="mb-2">Date: {new Date(selectedDay.date).toLocaleDateString()}</p>
                         {/* Add more details here */}
+                          {(() => {
+                            const aiPace = extractAIPace(selectedDay.workout);
+                            const zone = getWorkoutZone(selectedDay.workout);
+                            if (aiPace) {
+                              // Show only the AI's pace if present in the workout string
+                              return (
+                                <div className="mt-2 text-sm">
+                                  <span className="font-semibold">Target pace:</span> {aiPace}
+                                </div>
+                              );
+                            }
+                            if (paces && zone && paces.zones[zone]) {
+                              const val = paces.zones[zone];
+                              return (
+                                <div className="mt-2 text-sm">
+                                  <span className="font-semibold capitalize">{zone} pace:</span>{" "}
+                                  {val.min_mi} – {val.max_mi} <span className="opacity-70 ml-2">{val.min} – {val.max}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         <div className="mt-4">
                           <label>
                             <input type="checkbox" /> Mark as complete
