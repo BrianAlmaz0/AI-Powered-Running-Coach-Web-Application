@@ -63,21 +63,13 @@ function getZoneColor(zone: string) {
   }
 }
 
-function getDayColor(workout: string) {
-  if (/easy/i.test(workout)) return "bg-green-200";
-  if (/interval|speed/i.test(workout)) return "bg-red-200";
-  if (/long/i.test(workout)) return "bg-blue-200";
-  if (/rest/i.test(workout)) return "bg-gray-200";
-  return "bg-red-200";
-}
-
 function getWorkoutZone(workout: string): keyof PacesFromPBResult["zones"] | null {
   if (/tempo|steady/i.test(workout)) return "tempo";
   if (/threshold/i.test(workout)) return "threshold";
   if (/interval|vo2/i.test(workout)) return "interval";
   if (/speed|rep/i.test(workout)) return "speed";
   if (/long/i.test(workout)) return "long";
-  if (/easy/i.test(workout)) return "easy";
+  if (/easy|short jog/i.test(workout)) return "easy";
   return null;
 }
 
