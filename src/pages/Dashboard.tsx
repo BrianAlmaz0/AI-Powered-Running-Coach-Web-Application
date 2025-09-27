@@ -510,10 +510,9 @@ useEffect(() => {
     : 0;
 
   const STRAVA_CLIENT_ID = import.meta.env.VITE_STRAVA_CLIENT_ID;
-  const REDIRECT_URI = "http://localhost:3000/strava-callback";
+  const REDIRECT_URI = "https://running-ai-app.vercel.app/strava-callback";
   const SCOPE = "activity:read_all";
 
-  // Add this function inside your component file
   const connectStrava = () => {
     window.location.href = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(
       REDIRECT_URI
