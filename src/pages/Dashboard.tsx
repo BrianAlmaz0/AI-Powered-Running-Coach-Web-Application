@@ -11,6 +11,7 @@ import { getValidStravaAccessToken } from "@/utils/strava-token";
 import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { pacesFromPB, PacesFromPBResult } from "@/utils/pacesFromPB";
+import { TablesInsert } from "@/types/supabase";
 
 const locales = {
   'en-US': enUS,
@@ -94,6 +95,35 @@ function isValidTimeFormat(value: string) {
   return /^(\d{1,2}:)?[0-5]?\d:[0-5]\d$/.test(value.trim());
 }
 
+const fetchUserPlan = async (user, setPlan, setPaces) => {
+  if (!user) {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div>Please log in to view your dashboard.</div>
+    </div>
+  );
+}
+
+  const { data, error } = await supabase
+    .from("training_plans")
+    .select("plan, paces")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) {
+    setPlan(null);
+    setPaces(null);
+    return;
+  }
+
+  // Only cast if no error and data exists
+  const row = data as unknown as { plan: any; paces: any };
+  setPlan(row.plan ?? null);
+  setPaces(row.paces ?? null);
+};
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -118,126 +148,147 @@ const Dashboard = () => {
   const [pbTime, setPbTime] = useState("");
   const [paces, setPaces] = useState<PacesFromPBResult | null>(null);
   const handleGoalSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
+    setLoading(true);
 
-  const missingFields = [];
-  if (!raceType) missingFields.push("Race Distance");
-  if (!goalTime) missingFields.push("Goal Time");
-  if (!raceDate) missingFields.push("Race Date");
-  if (!runsPerWeek) missingFields.push("Runs Per Week");
-  if (!pbDistance) missingFields.push("Personal Best Distance");
-  if (!pbTime) missingFields.push("Personal Best Time");
-  
-  if (missingFields.length > 0) {
-    toast({
-      title: "Missing Required Fields",
-      description: `Please fill in: ${missingFields.join(", ")}`,
-      variant: "destructive",
-    });
-    setLoading(false);
-    return;
-  }
-
-    if (!isValidTimeFormat(goalTime)) {
-    toast({
-      title: "Invalid Goal Time",
-      description: "Please enter your goal time as hh:mm:ss or mm:ss.",
-      variant: "destructive",
-    });
-    setLoading(false);
-    return;
-  }
-  if (pbTime && !isValidTimeFormat(pbTime)) {
-    toast({
-      title: "Invalid Personal Best Time",
-      description: "Please enter your personal best as hh:mm:ss or mm:ss.",
-      variant: "destructive",
-    });
-    setLoading(false);
-    return;
-  }
-
-  e.preventDefault();
-  setLoading(true);
-
-  try {
-    // Send user inputs and recent activities to your AI API route
-    const res = await fetch("/api/ai-generate-plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        raceType,
-        goalTime,
-        raceDate,
-        runsPerWeek,
-        activities, // send all recent activities
-        pbDistance,
-        pbTime,
-      }),
-    });
-
-    if (!res.ok) {
-      throw new Error("Failed to generate plan.");
-    }
-
-    const { weeklyGoal, plan, message } = await res.json();
-    if (Array.isArray(plan) && plan.length > 0) {
-      setPlan(plan);
-    } else {
-      setPlan([]);
+    const missingFields = [];
+    if (!raceType) missingFields.push("Race Distance");
+    if (!goalTime) missingFields.push("Goal Time");
+    if (!raceDate) missingFields.push("Race Date");
+    if (!runsPerWeek) missingFields.push("Runs Per Week");
+    if (!pbDistance) missingFields.push("Personal Best Distance");
+    if (!pbTime) missingFields.push("Personal Best Time");
+    
+    if (missingFields.length > 0) {
       toast({
-        title: "No plan generated",
-        description: "The AI did not return a valid training plan. Please try again.",
+        title: "Missing Required Fields",
+        description: `Please fill in: ${missingFields.join(", ")}`,
         variant: "destructive",
       });
+      setLoading(false);
+      return;
     }
-    console.log("plan:", plan);
 
-    // Save the weekly goal to Supabase
-    await supabase
-      .from("profiles")
-      .update({ weekly_mileage_goal: weeklyGoal })
-      .eq("user_id", user.id);
+    if (!isValidTimeFormat(goalTime)) {
+      toast({
+        title: "Invalid Goal Time",
+        description: "Please enter your goal time as hh:mm:ss or mm:ss.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+    if (pbTime && !isValidTimeFormat(pbTime)) {
+      toast({
+        title: "Invalid Personal Best Time",
+        description: "Please enter your personal best as hh:mm:ss or mm:ss.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
 
-    setProfile((p) => p && { ...p, weekly_mileage_goal: weeklyGoal });
+    try {
+      // Map raceType to allowed plan_type values
+      let planType = raceType;
+      if (raceType === "half") planType = "half_marathon";
+      if (raceType === "full") planType = "marathon";
 
-    if (pbDistance && pbTime) {
-      try {
-        const pacesResult = pacesFromPB(pbDistance as any, pbTime);
-        setPaces(pacesResult);
-      } catch (err) {
-        setPaces(null);
+      // Send user inputs and recent activities to your AI API route
+      const res = await fetch("/api/ai-generate-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          raceType,
+          goalTime,
+          raceDate,
+          runsPerWeek,
+          activities,
+          pbDistance,
+          pbTime,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate plan.");
+      }
+
+      const { weeklyGoal, plan, message } = await res.json();
+      if (Array.isArray(plan) && plan.length > 0) {
+        setPlan(plan);
+      } else {
+        setPlan([]);
         toast({
-          title: "Invalid PB",
-          description: "Could not calculate paces from your personal best.",
+          title: "No plan generated",
+          description: "The AI did not return a valid training plan. Please try again.",
           variant: "destructive",
         });
       }
-    } else {
-      setPaces(null);
+
+      await supabase
+        .from("profiles")
+        .update({ weekly_mileage_goal: weeklyGoal })
+        .eq("user_id", user.id);
+
+      setProfile((p) => p && { ...p, weekly_mileage_goal: weeklyGoal });
+
+      let pacesResult = null;
+      if (pbDistance && pbTime) {
+        try {
+          pacesResult = pacesFromPB(pbDistance as any, pbTime);
+          setPaces(pacesResult);
+        } catch (err) {
+          setPaces(null);
+          toast({
+            title: "Invalid PB",
+            description: "Could not calculate paces from your personal best.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        setPaces(null);
+      }
+
+      const trainingPlan: TablesInsert<"training_plans"> = {
+        user_id: user.id,
+        plan_type: planType,
+        title: "My Training Plan",
+        weeks_duration: plan ? plan.length : 0,
+        plan: plan,
+        paces: pacesResult,
+        updated_at: new Date().toISOString(),
+        is_active: true,
+        ai_generated: true,
+      };
+
+      const { error: upsertError } = await supabase
+        .from("training_plans")
+        .upsert([trainingPlan]);
+      if (upsertError) {
+        toast({
+          title: "Error saving training plan",
+          description: upsertError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Training Plan Generated!",
+        description: message || `Your weekly goal is ${weeklyGoal} mi.`,
+        variant: "default",
+      });
+
+    } catch (error: any) {
+      toast({
+        title: "Error generating plan",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-
-    toast({
-      title: "Training Plan Generated!",
-      description: message || `Your weekly goal is ${weeklyGoal} mi.`,
-      variant: "default",
-    });
-
-    // Optionally, display the plan to the user here
-    // setPlan(plan);
-
-  } catch (error: any) {
-    toast({
-      title: "Error generating plan",
-      description: error.message,
-      variant: "destructive",
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const [loading, setLoading] = useState(true);
+  };
 
   const syncActivities = async () => {
   setSyncing(true);
@@ -358,7 +409,7 @@ useEffect(() => {
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
-      setLoading(false);
+      //setLoading(false);
     }
   };
 
@@ -390,14 +441,25 @@ useEffect(() => {
       console.error('Error fetching stats:', error);
     }
   };
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  if (user?.id) {
-    fetchProfile();
-    fetchStats();
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [user?.id]);
+    if (user?.id) {
+      setLoading(true); // Start loading
+      Promise.all([
+        fetchProfile(),
+        fetchStats(),
+        fetchUserPlan(user, setPlan, setPaces)
+      ]).finally(() => {
+        setLoading(false); // End loading after all fetches
+        console.log("Profile:", profile);
+        console.log("Stats:", stats);
+        console.log("Plan:", plan);
+        console.log("Paces:", paces);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -660,22 +722,22 @@ useEffect(() => {
                       {/*<span className="text-xs text-muted-foreground">Enter your best time for the selected distance</span>*/}
                     </div>
                     <div className="mt-8 space-y-2">
-                      {paces && (
-                        <div>
-                          <div className="mb-2 text-sm font-semibold text-muted-foreground">Your Training Paces</div>
-                          <div className="flex flex-col gap-2">
-                            {Object.entries(paces.zones).map(([zone, val]) => (
-                              <div key={zone} className={`rounded px-3 py-2 flex items-center gap-4 ${getZoneColor(zone)}`}>
-                                <span className="capitalize font-semibold w-24">{zone}</span>
-                                <span className="text-sm">
-                                  {val.min_mi} – {val.max_mi} <span className="opacity-70 ml-2">{val.min} – {val.max}</span>
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-2">{paces.notes}</div>
+                    {paces && paces.zones && (
+                      <div>
+                        <div className="mb-2 text-sm font-semibold text-muted-foreground">Your Training Paces</div>
+                        <div className="flex flex-col gap-2">
+                          {Object.entries(paces.zones).map(([zone, val]) => (
+                            <div key={zone} className={`rounded px-3 py-2 flex items-center gap-4 ${getZoneColor(zone)}`}>
+                              <span className="capitalize font-semibold w-24">{zone}</span>
+                              <span className="text-sm">
+                                {val.min_mi} – {val.max_mi} <span className="opacity-70 ml-2">{val.min} – {val.max}</span>
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      )}
+                        <div className="text-xs text-muted-foreground mt-2">{paces.notes}</div>
+                      </div>
+                    )}
                     </div>
                   </div>
                 </div>
