@@ -14,8 +14,15 @@
 ---
 
 ### 🛠️ Tech Stack
-- **Frontend:** React (Vite + TypeScript), shadcn/ui, Tailwind CSS (this repo)
-- **Backend:** Python, Django, Django ORM, PostgreSQL, JWT auth
+- **Frontend:** React (Vite + TypeScript), shadcn/ui, Tailwind CSS
+- **Backend/API:** Vercel Serverless Functions (TypeScript)
+- **Database & Auth:** Supabase (PostgreSQL, Auth)
 - **AI:** OpenAI API
-- **Integrations:** Strava API
-- **Deploy:** Frontend (Lovable Publish), Backend (Render)
+- **Integrations:** Strava API (OAuth, activity sync)
+- **Deployment:** Vercel (frontend & API routes)
+
+---
+
+## Live Demo
+
+[https://running-ai-app.vercel.app](https://running-ai-app.vercel.app)
